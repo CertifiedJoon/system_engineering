@@ -2,25 +2,14 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int main(int argc, char* argv []){
+int main(int argc, char* argv []) {
   int id = fork();
-  
-  if (id == 0){
+  if (id == 0) {
     // child process
-    n = 1;
+    printf("Hello world");
   } else {
-    n = 6;
-    waitpid(id);
+    // parent
+    fork();
+    printf("Hello World");
   }
-
-  for (int i = n; i < n + 5; i++) {
-    printf("%d ", i);
-    fflush();
-  }
-
-  if (id != 0) {
-    printf("\n");
-  }
-
-  return 0;
 }
