@@ -29,3 +29,45 @@ Kernel mode.
 Free memory
 remove from process list.
 """
+
+"""
+Kernel Mode
+load code from persistant memory
+allocate stack from argc/argv
+allocate heap
+call main()
+
+User Mode
+starts executing main()
+executes system call
+trap into OS
+
+Kernel Mode
+return from trap,
+execute and return
+
+User Mode
+finishes executing main()
+
+Kernel Mode
+free memory
+removes from process memory.
+
+
+OS @ boot
+initialize trap table
+
+Hardware
+remember addresses of syscall and timer handler
+
+OS @ boot
+start interrupt time
+
+Hardward
+Start timer
+
+process       hardware                      OS                           process
+process a -> timer interrupt -> traps -> switch() -> return-from trap -> process b
+
+
+"""
