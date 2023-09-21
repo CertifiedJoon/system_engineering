@@ -1,23 +1,21 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define NUM_THREADS 4
-#define NUM_ITERATIONS 1000000
-
-int counter = 0;
+#define NUM_COUNT 1000000
 
 sem_t mutex;
+int counter = 0;
 
-void *count(void *argv) {
-  for (int i = 0; i < NUM_ITERATIONS; i++){
+void *count(){
+  for (int i = 0; i < NUM_COUNT; i++) {
     sem_wait(&mutex);
     counter++;
     sem_post(&mutex);
   }
-
   return NULL;
 }
 
@@ -26,18 +24,18 @@ int main(int argc, char *argv []){
 
   sem_init(&mutex, 0, 1);
 
-  for (int i = 0; i < NUM_THREADS; i++) {
+  for (int i = 0; i < NUM_THREADS; i++){
     pthread_create(&threads[i], NULL, count, NULL);
   }
 
-  for (int i = 0; i < NUM_THREADS; i++) {
+  for (int i = 0; i < NUM_THREADS; i++){
     pthread_join(threads[i], NULL);
   }
 
   sem_destroy(&mutex);
 
-  printf("counter: %d\n", counter);
-  printf("expected: %d\n", NUM_ITERATIONS * NUM_THREADS);
+  printf("Counter: %d\n", counter);
+  printf("Expected: %d\n", NUM_COUNT * NUM_THREADS);
 
   return 0;
 }
