@@ -1,32 +1,32 @@
-import socket
-import sys
+"""
+System: first kernel process to be run, run at boot. starts smss.exe
+Abnormal behavior: pid not 4, multiple instances running, a parent process, 
 
-try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("Socket successfully created")
-except socket.error as e:
-    print("Socket creation failed with error ", str(e))
+System > smss.exe: Session Management Subsystem. starts processes both in kernel mode and user mode
+such as wininit.exe, csrss.exe, winlogon.exe, explorer.exe
+Abnormal behavior: parent not SYSTEM, user not SYSTEM, image path not windows/system32, 
 
-port = 80
+csrss.exe: client server runtime subsystem, manages client server interaction.
+Abnormal behavior: actual parent process (smss.exe starts this and terminates), multiple instances
+running, misspellings, user not SYSTEM, wrong image path
 
-try:
-    host_ip = socket.gethostbyname("www.google.com")
-except socket.gaierror:
-    print("Error resolving the host")
-    sys.exit()
+wininit.exe: process to initialize windows
 
-s.connect((host_ip, port))
+wininit.exe > services 
 
-print("the socket has succesffully connected to google")
-ip = ""
+wininit.exe > services >  svchosts.exe: manages session for each hosts. 
+always have multiple instances running, so it is often targeted. 
+Abnormal behavior: parent process other than csrss, mispellings, wrong image path, command without -k
 
-serverPort = 12000
-serverSocket = socket.socket(AF_INET, SOCK_DGRAM)
-serverSocket.bind(("", serverPort))
+winlogon
 
-serverSocket.listen(5)
-print("server is ready to receive")
+winlogon > lsass.exe pass the hash
 
-while True:
-    message, clientAddres = serverSocket.recvfrom(2048)
-    print(message.upper())
+explorer. look out for outgoing tcp connection
+
+alert tcp any any <> any 80 (msg:"found"; flag:"S"; sid:1000001;rev:1)
+
+Get-WinEvent -LogName Application-FilterXPath '*/System/Provider[@Name="WLMS"] and */EvenData/Data[@Name=ProcessCreationTime]=blablah'
+
+
+"""
