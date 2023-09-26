@@ -1,16 +1,24 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
+#include <unistd.h>
 
-int main(int argc, char *argv[]) {
-  if (argc > 2){
-    return -1;
+void sigusrHandler(int sig_num){
+  exit(0);
+}
+
+int main(){
+  signal(10, sigusrHandler);
+
+  FILE *fp;
+  fp = fopen("pid.txt", "w");
+  fprintf(fp, "%d", getpid());
+  fclose(fp);
+
+  while(1) {
+    printf("Still running...\n");
+    sleep(1);
   }
 
-  int* arr = (int*)malloc(atoi(argv[1]) * sizeof(int));
-
-  for (int i = 0; i < atoi(argv[1]); i++) {
-    arr[i] = i * i;
-    printf("%d\t", arr[i]);
-  }
-  printf("\n");
+  return 0;
 }
