@@ -1,0 +1,21 @@
+use man7 
+
+process statistics
+
+Premise:
+1.command execution using $ path
+2. use pipes
+3. print out process's running statistics
+4. signal handling
+
+1.
+/proc/pid/state
++
+running time = uptime - starttime in clock tick
+clock ticks/seconds = 100
+
+2. 
+submission in one single c file
+
+
+3. ./bashrc is the config file for bash
