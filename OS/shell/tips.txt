@@ -19,3 +19,5 @@ submission in one single c file
 
 
 3. ./bashrc is the config file for bash
+
+d..
