@@ -44,4 +44,13 @@ Benefits of scrum
 5. incremental delivery
 6. product is broken down to understandable chunks
 
+extremem programming is a agile practice
+pair programming
+collective ownership
+customer involvement
+test driven development
+incremental delivery
+
+
+
 """
