@@ -1,22 +1,22 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <pthread.h>
+
+void *mythread(void *arg){
+  long long int value = (long long int) arg;
+  printf("%lld\n", value);
+  return (void *) (value + 1);
+}
 
 int main(int argc, char *argv[]){
-  if (argc != 2){
-    return -1;
-  }
+  pthread_t p;
 
-  int *arr = (int *) malloc (sizeof(int) * atoi(argv[1]));
-  
-  for (int i = 0; i < atoi(argv[1]); i++) {
-    arr[i] = i * i;
-  }
+  long long int rvalue;
 
-  for (int i = 0; i < atoi(argv[1]); i++) {
-    printf("%d\t",arr[i]);
-  }
+  pthread_create(&p, NULL, mythread, (void *) 100);
 
-  printf("\n");
-
+  pthread_join(p, (void **) &rvalue);
+  printf("returned %lld\n", rvalue);
   return 0;
 }
