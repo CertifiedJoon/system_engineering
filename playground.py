@@ -51,6 +51,11 @@ customer involvement
 test driven development
 incremental delivery
 
+people over process
+customer involvement
+flexible to change
+
+
 
 
 """
