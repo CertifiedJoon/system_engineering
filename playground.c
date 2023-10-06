@@ -3,12 +3,17 @@
 #include <pthread.h>
 #include <unistd.h>
 
+void *mythread(void *val){
+  long long int i = (long long int) val;
+  i++;
+  return (void *) i;
+}
+
 int main(int argc, char *argv[]){
-  pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+  pthread_t thread;
 
-  Pthread_mutex_lock(&lock); // wrapper
-  balance = balance + 1;
-  Pthread_mutex_unlock(&lock);
-
-  return 0;
+  pthread_create(&thread, NULL, mythread, (void *) 100);
+  long long int val;
+  pthread_join(thread, (void *) &val);
+  printf("returnd %lld\n", val);
 }
