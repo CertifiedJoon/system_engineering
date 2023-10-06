@@ -1,43 +1,21 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <semaphore.h>
-
-#define NUM_THREADS 4
-#define NUM_ITER 1000000
-
-sem_t mutex;
-int counter = 0;
-
-void *count(void *arg){
-  for (int i = 0; i < NUM_ITER; i++) {
-    sem_wait(&mutex);
-    counter += 1;
-    sem_post(&mutex);
-  }
-  int value = 0;
-  return (void *) (value);
+int TestAndSet(int *old_ptr, int new) {
+  int old = *old_ptr;
+  *old_ptr = new;
+  return old;
 }
 
-int main(int argc, char *argv[]){
-  pthread_t threads[NUM_THREADS];
+typedef struct __lock_t {
+  int flag;
+} lock_t;
 
-  sem_init(&mutex, 0, 1);
-  
-  for (int i = 0; i < NUM_THREADS; i++){
-    pthread_create(&threads[i], NULL, count, (void *) 100);
-  }
+void init (lock_t *lock) {
+  lock->flag = 0;
+}
 
-  int rvalue;
+void lock(lock_t *lock) {
+  while (TestAndSet(&lock->flag, 1) == 1);
+}
 
-  for (int i = 0; i < NUM_THREADS; i++){
-    pthread_join(threads[i], (void *) &rvalue);
-  }
-
-  sem_destroy(&mutex);
-
-  printf("counted %d\n", counter);
-
-  return 0;
+void unlock(lock_t *lock) {
+  lock->flag = 0;
 }
