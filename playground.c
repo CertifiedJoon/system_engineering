@@ -1,14 +1,14 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <signal.h>
 
-int main(int argc, char *argv[]) {
-  int pid = fork();
-  if (pid == 0) {
-    printf("Hello World, %d\n", getpid());
-  } else {
-    printf("Hello World , %d\n", getpid());
-  }
+void signalHandler(int signal_no){
+  exit(0);
+}
 
-  return 0;
+int main(int arg, char *argv[]){
+  signal(10, signalHandler);
+
+
 }
