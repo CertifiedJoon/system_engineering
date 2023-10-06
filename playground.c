@@ -10,12 +10,14 @@
 sem_t mutex;
 int counter = 0;
 
-void *count(){
+void *count(void *arg){
   for (int i = 0; i < NUM_ITER; i++) {
     sem_wait(&mutex);
     counter += 1;
     sem_post(&mutex);
   }
+  int value = 0;
+  return (void *) (value);
 }
 
 int main(int argc, char *argv[]){
@@ -24,15 +26,17 @@ int main(int argc, char *argv[]){
   sem_init(&mutex, 0, 1);
   
   for (int i = 0; i < NUM_THREADS; i++){
-    pthread_create(&threads[i], NULL, count, NULL);
+    pthread_create(&threads[i], NULL, count, (void *) 100);
   }
 
+  int rvalue;
+
   for (int i = 0; i < NUM_THREADS; i++){
-    pthread_join(threads[i], NULL);
+    pthread_join(threads[i], (void *) &rvalue);
   }
 
   sem_destroy(&mutex);
-  
+
   printf("counted %d\n", counter);
 
   return 0;
