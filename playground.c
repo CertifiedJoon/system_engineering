@@ -1,14 +1,14 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
-#include <signal.h>
+#include <pthread.h>
+#include <unistd.h>
 
-void signalHandler(int signal_no){
-  exit(0);
-}
+int main(int argc, char *argv[]){
+  pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-int main(int arg, char *argv[]){
-  signal(10, signalHandler);
+  Pthread_mutex_lock(&lock); // wrapper
+  balance = balance + 1;
+  Pthread_mutex_unlock(&lock);
 
-
+  return 0;
 }
