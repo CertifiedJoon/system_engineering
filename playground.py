@@ -1,12 +1,19 @@
-from decimal import *
-import math
+from time import sleep
 
-getcontext().prec = 6
-getcontext().rounding = ROUND_HALF_UP
 
-dec = Decimal(2.15)
-print(math.ceil(dec))
-print(math.floor(dec))
+def factor(n):
+    for i in range(1, 1 + n):
+        if n % i == 0:
+            yield i
 
-print(math.comb(4, 2))
-print(math.perm(4, 2))
+
+for i in factor(4):
+    sleep(1)
+    print(i)
+
+arr = [i for i in factor(4)]
+print(arr)
+
+while i:
+    i = factor(4)
+    print(i)
