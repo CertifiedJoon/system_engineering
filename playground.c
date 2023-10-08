@@ -7,14 +7,17 @@ void init (lock_t *lock) {
   lock->flag = 0;
 }
 
-int TestAndSet(int *ptr, int new){
-  int original = *ptr;
-  *ptr = new;
-  return original;
+int StoreConditional(int *ptr, int value) {
+  if (*ptr == 0) {
+    *ptr = value;
+    return 1
+  } else {
+    return 0;
+  }
 }
 
-void lock (lock_t *lock) {
-  while (TestAndSet(lock->flag, 1) == 1);
+void lock(lock_t *lock) {
+  while (LoadLinked(lock->flag) || !StoreConditional(lock->flag, 1));
 }
 
 void unlock(lock_t *lock) {
