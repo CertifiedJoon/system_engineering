@@ -1,24 +1,18 @@
-typedef struct __lock_t {
-  int ticket;
-  int turn;
-} lock_t;
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
 
-int FetchAndAdd(int *ptr) {
-  int old = *ptr;
-  *ptr = old + 1;
-  return old;
+void *count() {
+  return (void *) 100;
 }
 
-void lock_init(lock_t *lock) {
-  lock->ticket = 0;
-  lock->turn = 0;
-}
+int main(int argc, char *argv[]) {
+  pthread_t p;
 
-void lock(lock_t *lock) {
-  int myturn = FetchAndAdd(&lock->ticket);
-  while (lock->turn != myturn);
-}
+  pthread_create(&p, NULL, count, NULL);
+  int rval;
+  pthread_join(p, (void **) &rval);
+  printf("%d\n", rval);
 
-void unlock(lock_t *lock) {
-  lock->turn = lock->turn + 1;
+  return 0;
 }
