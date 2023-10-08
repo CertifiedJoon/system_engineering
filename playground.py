@@ -1,19 +1,12 @@
-import heapq
+from decimal import *
+import math
 
-arr = [1, 2, 4, 5, 3, 6, 2, 3, 1]
+getcontext().prec = 6
+getcontext().rounding = ROUND_HALF_UP
 
-heapq.heapify(arr)
+dec = Decimal(2.15)
+print(math.ceil(dec))
+print(math.floor(dec))
 
-print(arr)
-
-heapq.heappush(arr, 1)
-
-print(arr)
-
-a = heapq.heappop(arr)
-
-print(a)
-
-print(heapq.nlargest(3, arr))
-
-print(heapq.nsmallest(4, arr))
+print(math.comb(4, 2))
+print(math.perm(4, 2))
