@@ -11,9 +11,24 @@ for i in factor(4):
     sleep(1)
     print(i)
 
-arr = [i for i in factor(4)]
-print(arr)
 
-while i:
-    i = factor(4)
-    print(i)
+class LinkedList:
+    def __init__(self):
+        self._val = None
+        self._next = None
+
+    def iter(self):
+        return self._next
+
+
+def reverse(head):
+    curr = head
+    prev = None
+
+    while curr:
+        next = curr.next
+        curr.next = prev
+        prev = curr
+        curr = next
+
+    return prev

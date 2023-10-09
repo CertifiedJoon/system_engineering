@@ -4,75 +4,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 
 #define MAX_COMMAND_LENGTH 1024
 #define MAX_ARGS 100
-
-
-
-void get_process_statistics(pid_t pid) {
-    pid = 621;
-    char filename[100];
-    snprintf(filename, sizeof(filename), "/proc/%d/stat", pid);
-
-    // Check if the file exists
-    if (access(filename, F_OK) != 0) {
-        perror("Error: /proc/{pid}/stat file does not exist");
-        return;
-    }
-
-    FILE* stat_file = fopen(filename, "r");
-    if (stat_file) {
-        char cmd[256];
-        char state;
-        int ppid;
-        unsigned long user_time, sys_time;
-
-        if (fscanf(stat_file, "%*d %s %c %*d %d", cmd, &state, &ppid) == 3) {
-            fscanf(stat_file, "%*d %*d %*d %*d %*d %*u %*lu %*lu %*lu %*lu %*lu %lu %lu %*ld",
-                   &user_time, &sys_time);
-            
-            fclose(stat_file);
-
-            // Print the obtained statistics
-            printf("PID: %d ", pid);
-            printf("CMD: %s ", cmd);
-            printf("STATE: %c ", state);
-            printf("EXCODE: Not available "); // You can implement this if needed
-            printf("EXSIG: Not available ");  // You can implement this if needed
-            printf("PPID: %d ", ppid);
-            printf("USER: %.2f seconds ", (double)user_time / sysconf(_SC_CLK_TCK));
-            printf("SYS: %.2f seconds ", (double)sys_time / sysconf(_SC_CLK_TCK));
-        } else {
-            perror("Error reading stat file");
-        }
-    } else {
-        perror("Error opening stat file");
-    }
-
-    // Now, read context switches from /proc/{pid}/status
-    snprintf(filename, sizeof(filename), "/proc/%d/status", pid);
-    FILE* status_file = fopen(filename, "r");
-    if (status_file) {
-        char line[256];
-        unsigned long voluntary_ctxt_switches, nonvoluntary_ctxt_switches;
-        while (fgets(line, sizeof(line), status_file)) {
-            if (strstr(line, "voluntary_ctxt_switches:")) {
-                sscanf(line, "voluntary_ctxt_switches: %lu", &voluntary_ctxt_switches);
-            } else if (strstr(line, "nonvoluntary_ctxt_switches:")) {
-                sscanf(line, "nonvoluntary_ctxt_switches: %lu", &nonvoluntary_ctxt_switches);
-            }
-        }
-        fclose(status_file);
-
-        // Print the context switch statistics
-        printf("VCTX: %lu\n", voluntary_ctxt_switches);
-        printf("NVCTX: %lu\n", nonvoluntary_ctxt_switches);
-    } else {
-        perror("Error opening status file");
-    }
-}
 
 void execute_command(char *command) {
     char *args[MAX_ARGS];
@@ -136,9 +70,16 @@ void execute_command(char *command) {
             // Fork a child process for each command in the pipeline
             if ((pids[j] = fork()) == 0) {
                 // Child process
-
-                // Capture the PID of the child process
-                pid_t child_pid = getpid();
+                if (j < num_pipes) {
+                    // Redirect output to the next pipe (except for the last command)
+                    dup2(pipe_fds[j][1], STDOUT_FILENO);
+                    close(pipe_fds[j][0]); // Close the read end of the current pipe
+                }
+                if (j > 0) {
+                    // Redirect input from the previous pipe (except for the first command)
+                    dup2(pipe_fds[j - 1][0], STDIN_FILENO);
+                    close(pipe_fds[j - 1][1]); // Close the write end of the previous pipe
+                }
 
                 // Execute the current command
                 execvp(cmd_args[0], cmd_args);
@@ -158,10 +99,6 @@ void execute_command(char *command) {
         // Wait for all child processes to finish
         for (int j = 0; j <= num_pipes; j++) {
             waitpid(pids[j], &status, 0);
-
-            // Capture and display the process statistics
-            pid_t child_pid = pids[j];
-            get_process_statistics(child_pid);
         }
     } else {
         // No piping, execute the command as before
@@ -169,10 +106,6 @@ void execute_command(char *command) {
 
         if (pid == 0) {
             // Child process
-
-            // Capture the PID of the child process
-            pid_t child_pid = getpid();
-
             execvp(args[0], args);
             perror("execvp");
             exit(1);
@@ -180,17 +113,12 @@ void execute_command(char *command) {
             // Parent process
             int status;
             waitpid(pid, &status, 0);
-
-            // Capture and display the process statistics
-            pid_t child_pid = pid;
-            get_process_statistics(child_pid);
         } else {
             // Forking failed
             perror("fork");
         }
     }
 }
-
 
 int main() {
     char command[MAX_COMMAND_LENGTH];
