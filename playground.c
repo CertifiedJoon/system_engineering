@@ -1,18 +1,19 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <pthread.h>
-
-void *count() {
-  return (void *) 100;
+int FetchAndAdd(int *ptr) {
+  int old = *ptr;
+  *ptr = old + 1;
+  return old;
 }
 
-int main(int argc, char *argv[]) {
-  pthread_t p;
+typedef struct __lock_t {
+  int *turn;
+  int *ticket;
+} lock_t;
 
-  pthread_create(&p, NULL, count, NULL);
-  int rval;
-  pthread_join(p, (void **) &rval);
-  printf("%d\n", rval);
+void lock(lock_t *lock) {
+  int myturn = FetchAndAdd(&lock->ticket);
+  while (lock->turn != myturn);
+}
 
-  return 0;
+void unlock(lock_t *lock) {
+  lock->turn = lock->turn + 1;
 }
