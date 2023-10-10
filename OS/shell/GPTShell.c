@@ -40,8 +40,8 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
             printf("(PID)%d ", pid);
             printf("(CMD)%s ", cmd);
             printf("(STATE)%c ", state);
-            printf("(EXCODE)Z "); // You can implement this if needed
-            printf("(EXSIG)%d ", info->si_status);  // You can implement this if needed
+            printf("(EXCODE) ");
+            printf("(EXSIG)%d ", info->si_status);
             printf("(PPID)%d ", ppid);
             printf("(USER)%.2f ", (double)user_time / sysconf(_SC_CLK_TCK));
             printf("(SYS)%.2f ", (double)sys_time / sysconf(_SC_CLK_TCK));
