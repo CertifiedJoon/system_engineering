@@ -27,12 +27,17 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
     if (stat_file) {
         char cmd[256];
         char state;
-        int ppid;
-        unsigned long user_time, sys_time;
+        int ppid, exit_code, _d;
+        unsigned long user_time, sys_time, _lu;
+        unsigned _u;
+        long _ld;
+        unsigned long long _llu;
 
         if (fscanf(stat_file, "%*d %s %c %*d %d", cmd, &state, &ppid) == 3) {
-            fscanf(stat_file, "%*d %*d %*d %*d %*d %*u %*lu %*lu %*lu %*lu %*lu %lu %lu %*ld",
-                   &user_time, &sys_time);
+            fscanf(stat_file, "%*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %*u %*u %*u %*ld",
+                   &_d, &_d, &_d, &_d, &_d, &_u, &_lu, &_lu, &_lu, &_lu, &_lu, &user_time, &sys_time, &_ld);
+            fscanf(stat_file, "%*d %*d %*d %*d %*d %*d %*u %*u %*d %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*lu %*d %*d %*u %*llu %*lu %*ld %*lu %*lu %*lu %*lu %*lu %*lu %*lu %*d",
+                   &_ld ,&_ld ,&_ld ,&_ld ,&_ld ,&_ld ,&_llu ,&_lu ,&_ld ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_d ,&_d ,&_u ,&_llu ,&_lu ,&_ld ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu , &exit_code);
             
             fclose(stat_file);
 
@@ -40,7 +45,7 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
             printf("(PID)%d ", pid);
             printf("(CMD)%s ", cmd);
             printf("(STATE)%c ", state);
-            printf("(EXCODE) ");
+            printf("(EXCODE)%d ", exit_code);
             printf("(EXSIG)%d ", info->si_status);
             printf("(PPID)%d ", ppid);
             printf("(USER)%.2f ", (double)user_time / sysconf(_SC_CLK_TCK));
