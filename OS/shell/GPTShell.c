@@ -31,13 +31,13 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
         unsigned long user_time, sys_time, _lu;
         unsigned _u;
         long _ld;
-        unsigned long long _llu;
+        unsigned long long _llu, start_time;
 
-        if (fscanf(stat_file, "%*d %s %c %*d %d", cmd, &state, &ppid) == 3) {
-            fscanf(stat_file, "%*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %*u %*u %*u %*d",
-                   &_d, &_d, &_d, &_d, &_d, &_u, &_lu, &_lu, &_lu, &_lu, &_lu, &user_time, &sys_time, &_ld);
-            fscanf(stat_file, "%*d %*d %*d %*d %*d %*d %*u %*u %*d %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*d %*d %*u %*u %*u %*d %*u %*u %*u %*u %*u %*u %*u %*d",
-                   &_ld ,&_ld ,&_ld ,&_ld ,&_ld ,&_ld ,&_llu ,&_lu ,&_ld ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_d ,&_d ,&_u ,&_llu ,&_lu ,&_ld ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu , &exit_code);
+        if (fscanf(stat_file, "%d %s %c %d %d", &_d, cmd, &state, &ppid, &_d) == 5) {
+            fscanf(stat_file, "%d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld",
+                   &_d, &_d, &_d, &_u, &_lu, &_lu, &_lu, &_lu, &user_time, &sys_time, &_ld, &_ld, &_ld, &_ld);
+            fscanf(stat_file, "%ld %ld %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %d",
+                   &_ld ,&_ld ,&_llu ,&_lu ,&_ld ,&_lu , &_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_d ,&_d ,&_u ,&_u ,&_llu ,&_lu ,&_ld ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu , &exit_code);
             
             fclose(stat_file);
 
@@ -48,8 +48,9 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
             printf("(EXCODE)%d ", exit_code);
             printf("(EXSIG)%d ", info->si_status);
             printf("(PPID)%d ", ppid);
-            printf("(USER)%.2f ", (double)user_time / sysconf(_SC_CLK_TCK));
-            printf("(SYS)%.2f ", (double)sys_time / sysconf(_SC_CLK_TCK));
+            printf("(USER)%.2f ", user_time / (double) sysconf(_SC_CLK_TCK));
+            printf("(SYS)%.2f ", sys_time / (double) sysconf(_SC_CLK_TCK));
+            printf("%lu %lu", user_time, sys_time);
         } else {
             perror("Error reading stat file");
         }
