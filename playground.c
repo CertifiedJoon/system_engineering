@@ -1,17 +1,21 @@
-typedef struct __lock_t{
-  int turn;
-  int ticket;
-} lock_t;
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
 
-int fetchTicket(lock_t *lock) {
-  int t = lock->ticket;
-  lock->ticket += 1;
-  return t;
+void *mythread(void *arg){
+  long long int *val = (long long int*) arg;
+  *val++;
+  return (void *) &val;
 }
 
-int checkMyTurn(lock_t *lock, int ticket){
-  if (lock->turn == ticket){
-    return 1;
-  }
-  return 0;
+
+
+
+int main(int argc, char *argv[]){
+  pthread_t p;
+  pthread_create(&p, NULL, mythread, (void *) 100);
+  long long int rval;
+  pthread_join(p, (void **) &rval);
+  printf("%lld\n", rval);
 }
