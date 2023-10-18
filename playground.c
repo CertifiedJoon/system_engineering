@@ -1,21 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 
-void *mythread(void *arg){
-  long long int *val = (long long int*) arg;
-  *val++;
-  return (void *) &val;
+typedef struct __lock_t {
+  int lock;
+} lock_t;
+
+int testAndSet(int *old, int new){
+  int old_val = *old;
+  *old = new;
+  return old_val;
+}
+
+int unlock(lock_t *lock){
+  lock->lock = 0;
 }
 
 
+int lock(lock_t *lock){
+  while(testAndSet(lock->lock, 1) == 1);
 
-
-int main(int argc, char *argv[]){
-  pthread_t p;
-  pthread_create(&p, NULL, mythread, (void *) 100);
-  long long int rval;
-  pthread_join(p, (void **) &rval);
-  printf("%lld\n", rval);
+  unlock();
 }
