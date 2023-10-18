@@ -3,9 +3,30 @@
 #include <pthread.h>
 #include <unitsd.h>
 
-int main(int argc, char *argv[]){
-  pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-  pthread_mutex_lock(&lock);
-  balance = balance + 1;
-  pthread_mutex_unlock(&lock);
+typedef struct __lock_t {
+  int turn;
+  int ticket;
+} lock_t;
+
+
+int fetchTicket(lock_t *lock) {
+  return lock->ticket++;
+}
+
+int isMyTurn(lock_t *lock, int ticket) {
+  if (ticket == lock->turn){
+    lock->turn++;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+
+int thread(){
+  
+  
+  int ticket = fetchTicket(lock);
+  while (isMyTurn);
+  
 }
