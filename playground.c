@@ -1,23 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
+#include <unitsd.h>
 
-typedef struct __lock_t {
-  int lock;
-} lock_t;
-
-int testAndSet(int *old, int new){
-  int old_val = *old;
-  *old = new;
-  return old_val;
-}
-
-int unlock(lock_t *lock){
-  lock->lock = 0;
-}
-
-
-int lock(lock_t *lock){
-  while(testAndSet(lock->lock, 1) == 1);
-
-  unlock();
+int main(int argc, char *argv[]){
+  pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+  pthread_mutex_lock(&lock);
+  balance = balance + 1;
+  pthread_mutex_unlock(&lock);
 }
