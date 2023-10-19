@@ -341,12 +341,35 @@ Would you like to know more about error handling in C?
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <semaphore.h>
 
 #define MAX_COMMAND_LENGTH 1024
 #define MAX_ARGS 100
 
+sem_t mutex;
+int done_waiting = 0;
+
 void sig2Handler(int signum){
+    // ignore ctrl-c
     ;
+}
+
+void sig10Handler(int signum)
+{
+    printf("Signal caught\n");
+    sem_wait(&mutex);
+    done_waiting = 1;
+    sem_post(&mutex);
+}
+
+void my_pause()
+{
+    // pause until sigusr1
+    sem_wait(&mutex);
+    done_waiting = 0;
+    sem_post(&mutex);
+    while ( !done_waiting )
+        ;
 }
 
 void get_process_statistics(pid_t pid, siginfo_t *info) {
@@ -491,6 +514,7 @@ void execute_command(char *command) {
                 }
 
                 // Execute the current command
+                my_pause();
                 execvp(cmd_args[0], cmd_args);
                 perror("execvp");
                 exit(1);
@@ -510,7 +534,7 @@ void execute_command(char *command) {
             pid_t child_pid = pids[j];
             siginfo_t info;
             int status;
-
+            raise(SIGUSR1);
             waitid(P_PID, child_pid, &info, WNOWAIT | WEXITED);
         }
         for (int j = 0; j <= num_pipes; j++){
@@ -530,7 +554,7 @@ void execute_command(char *command) {
 
             // Capture the PID of the child process
             pid_t child_pid = getpid();
-
+            my_pause();
             execvp(args[0], args);
             perror("execvp");
             exit(1);
@@ -538,6 +562,7 @@ void execute_command(char *command) {
             // Capture and display the process statistics
             pid_t child_pid = pid;
             siginfo_t info;
+            raise(SIGUSR1);
             waitid(P_PID, child_pid, &info, WNOWAIT | WEXITED);
             get_process_statistics(child_pid, &info);
             waitpid(child_pid, &status, 0);
@@ -553,7 +578,11 @@ int main() {
     char command[MAX_COMMAND_LENGTH];
     pid_t pid = getpid();
     char exit_command[10] = "exit";
-    signal(2, sig2Handler);
+
+    sem_init(&mutex, 0, 1);
+
+    signal(SIGINT, sig2Handler);
+    signal(SIGUSR1, sig10Handler);
 
     while (1) {
         printf("## JCShell [%d] ## ", pid);
@@ -571,6 +600,8 @@ int main() {
         // Execute the command
         execute_command(command);
     }
+
+    sem_destroy(&mutex);
 
     return 0;
 }
