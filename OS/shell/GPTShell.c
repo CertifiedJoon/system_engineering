@@ -397,8 +397,9 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
             printf("(PID)%d ", pid);
             printf("(CMD)%s ", cmd);
             printf("(STATE)%c ", state);
+            if (exit_code == )
             printf("(EXCODE)%d ", exit_code);
-            printf("(EXSIG)%d ", info->si_status);
+            printf("(EXSIG)%d ", info->si_signo);
             printf("(PPID)%d ", ppid);
             printf("(USER)%.2f ", user_time / (double) sysconf(_SC_CLK_TCK));
             printf("(SYS)%.2f ", sys_time / (double) sysconf(_SC_CLK_TCK));
