@@ -356,20 +356,13 @@ void sig2Handler(int signum){
 
 void sig10Handler(int signum)
 {
-    printf("Signal caught\n");
-    sem_wait(&mutex);
     done_waiting = 1;
-    sem_post(&mutex);
 }
 
 void my_pause()
 {
-    // pause until sigusr1
-    sem_wait(&mutex);
+    while (!done_waiting);
     done_waiting = 0;
-    sem_post(&mutex);
-    while ( !done_waiting )
-        ;
 }
 
 void get_process_statistics(pid_t pid, siginfo_t *info) {
@@ -534,7 +527,7 @@ void execute_command(char *command) {
             pid_t child_pid = pids[j];
             siginfo_t info;
             int status;
-            raise(SIGUSR1);
+            kill(child_pid, SIGUSR1);
             waitid(P_PID, child_pid, &info, WNOWAIT | WEXITED);
         }
         for (int j = 0; j <= num_pipes; j++){
@@ -562,7 +555,7 @@ void execute_command(char *command) {
             // Capture and display the process statistics
             pid_t child_pid = pid;
             siginfo_t info;
-            raise(SIGUSR1);
+            kill(pid, SIGUSR1);
             waitid(P_PID, child_pid, &info, WNOWAIT | WEXITED);
             get_process_statistics(child_pid, &info);
             waitpid(child_pid, &status, 0);
