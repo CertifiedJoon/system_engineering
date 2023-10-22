@@ -346,7 +346,6 @@ Would you like to know more about error handling in C?
 #define MAX_COMMAND_LENGTH 1024
 #define MAX_ARGS 100
 
-sem_t mutex;
 int done_waiting = 0;
 
 void sig2Handler(int signum){
@@ -371,20 +370,20 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
 
     // Check if the file exists
     if (access(filename, F_OK) != 0) {
-        perror("Error: /proc/{pid}/stat file does not exist");
+        perror("JCshell: /proc/{pid}/stat file does not exist");
         return;
     }
 
     FILE* stat_file = fopen(filename, "r");
-    if (stat_file) {
-        char cmd[256];
-        char state;
-        int ppid, exit_code, _d;
-        unsigned long user_time, sys_time, _lu;
-        unsigned _u;
-        long _ld;
-        unsigned long long _llu, start_time;
+    char cmd[256];
+    char state;
+    int ppid, exit_code, _d;
+    unsigned long user_time, sys_time, _lu;
+    unsigned _u;
+    long _ld;
+    unsigned long long _llu, start_time;
 
+    if (stat_file) {
         if (fscanf(stat_file, "%d %s %c %d %d", &_d, cmd, &state, &ppid, &_d) == 5) {
             fscanf(stat_file, "%d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld",
                    &_d, &_d, &_d, &_u, &_lu, &_lu, &_lu, &_lu, &user_time, &sys_time, &_ld, &_ld, &_ld, &_ld);
@@ -392,31 +391,21 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
                    &_ld ,&_ld ,&_llu ,&_lu ,&_ld ,&_lu , &_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_d ,&_d ,&_u ,&_u ,&_llu ,&_lu ,&_ld ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu ,&_lu , &exit_code);
             
             fclose(stat_file);
-
-            // Print the obtained statistics
-            printf("(PID)%d ", pid);
-            printf("(CMD)%s ", cmd);
-            printf("(STATE)%c ", state);
-            if (exit_code == )
-            printf("(EXCODE)%d ", exit_code);
-            printf("(EXSIG)%d ", info->si_signo);
-            printf("(PPID)%d ", ppid);
-            printf("(USER)%.2f ", user_time / (double) sysconf(_SC_CLK_TCK));
-            printf("(SYS)%.2f ", sys_time / (double) sysconf(_SC_CLK_TCK));
-            printf("%lu %lu", user_time, sys_time);
         } else {
-            perror("Error reading stat file");
+            perror("JCshell: Error reading stat file");
         }
     } else {
-        perror("Error opening stat file");
+        perror("JCshell: Error opening stat file");
     }
 
     // Now, read context switches from /proc/{pid}/status
     snprintf(filename, sizeof(filename), "/proc/%d/status", pid);
     FILE* status_file = fopen(filename, "r");
+
+    char line[256];
+    unsigned long voluntary_ctxt_switches, nonvoluntary_ctxt_switches;
+
     if (status_file) {
-        char line[256];
-        unsigned long voluntary_ctxt_switches, nonvoluntary_ctxt_switches;
         while (fgets(line, sizeof(line), status_file)) {
             if (strstr(line, "voluntary_ctxt_switches:")) {
                 sscanf(line, "voluntary_ctxt_switches: %lu", &voluntary_ctxt_switches);
@@ -425,13 +414,32 @@ void get_process_statistics(pid_t pid, siginfo_t *info) {
             }
         }
         fclose(status_file);
-
-        // Print the context switch statistics
-        printf("(VCTX)%lu ", voluntary_ctxt_switches);
-        printf("(NVCTX)%lu\n", nonvoluntary_ctxt_switches);
     } else {
-        perror("Error opening status file");
+        perror("JCshell: Error opening status file");
     }
+    // Print the context switch statistics
+    int status;
+    waitpid(pid, &status, 0);
+
+    // Print the obtained statistics
+    printf("(PID)%d ", pid);
+    printf("(CMD)%s ", cmd);
+    printf("(STATE)%c ", state);
+    if (WTERMSIG(status) == 11) {
+        printf("(EXSIG)Segmentation fault ");
+    } else if (WTERMSIG(status) == 2) {
+        printf("(EXSIG)Interrupt ");
+    } else if (exit_code >=256) {
+        printf("(EXCODE)%d ", exit_code / 256);
+    } else {
+        printf("(EXCODE)%d ", exit_code);
+    }
+    printf("(PPID)%d ", ppid);
+    printf("(USER)%.2f ", user_time * 1.0 / (double) sysconf(_SC_CLK_TCK));
+    printf("(SYS)%.2f ", sys_time * 1.0 / (double) sysconf(_SC_CLK_TCK));
+    printf("(VCTX)%lu ", voluntary_ctxt_switches);
+    printf("(NVCTX)%lu\n", nonvoluntary_ctxt_switches);
+
     fflush(stdout);
 }
 
@@ -455,7 +463,12 @@ void execute_command(char *command) {
 
     // Check for built-in commands (e.g., "exit")
     if (strcmp(args[0], "exit") == 0) {
-        exit(0);
+        if (args[1]){
+            printf("JCshell: exit with other arguments\n");
+            return;
+        }
+        else
+            exit(0);
     }
 
     // Initialize an array of pipes
@@ -467,7 +480,7 @@ void execute_command(char *command) {
         if (strcmp(args[j], "|") == 0) {
             args[j] = NULL; // Terminate the current command
             if (pipe(pipe_fds[num_pipes]) == -1) {
-                perror("pipe");
+                perror("JCshell");
                 return;
             }
             num_pipes++;
@@ -510,10 +523,10 @@ void execute_command(char *command) {
                 // Execute the current command
                 my_pause();
                 execvp(cmd_args[0], cmd_args);
-                perror("execvp");
+                perror("JCshell");
                 exit(1);
             } else if (pids[j] < 0) {
-                perror("fork");
+                perror("JCshell");
                 return;
             }
 
@@ -534,9 +547,7 @@ void execute_command(char *command) {
         for (int j = 0; j <= num_pipes; j++){
             pid_t child_pid = pids[j];
             siginfo_t info;
-            int status;
             get_process_statistics(child_pid, &info);
-            waitpid(child_pid, &status, 0);
         }
     } else {
         // No piping, execute the command as before
@@ -550,7 +561,7 @@ void execute_command(char *command) {
             pid_t child_pid = getpid();
             my_pause();
             execvp(args[0], args);
-            perror("execvp");
+            perror("JCshell");
             exit(1);
         } else if (pid > 0) {
             // Capture and display the process statistics
@@ -559,10 +570,10 @@ void execute_command(char *command) {
             kill(pid, SIGUSR1);
             waitid(P_PID, child_pid, &info, WNOWAIT | WEXITED);
             get_process_statistics(child_pid, &info);
-            waitpid(child_pid, &status, 0);
+            // waitpid(child_pid, &status, 0);
         } else {
             // Forking failed
-            perror("fork");
+            perror("JCshell");
         }
     }
 }
@@ -571,20 +582,18 @@ void execute_command(char *command) {
 int main() {
     char command[MAX_COMMAND_LENGTH];
     pid_t pid = getpid();
-    char exit_command[10] = "exit";
+    char exit_command[5] = "exit";
 
     signal(SIGINT, sig2Handler);
     signal(SIGUSR1, sig10Handler);
 
     while (1) {
-        printf("## JCShell [%d] ## ", pid);
+        printf("## JCshell [%d] ## ", pid);
         fflush(stdout);
 
         if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL)
             break;
-
-        if (strcmp(command, exit_command) == 1)
-            exit(1);
+            
 
         // Remove the newline character
         command[strcspn(command, "\n")] = '\0';

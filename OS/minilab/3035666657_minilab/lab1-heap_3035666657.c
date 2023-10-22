@@ -14,7 +14,7 @@ int* initialize_array(int n){
 
     // TODO: 2. Use a loop to navigate through the array.
     // For each index 'i', set arr[i] to i * i (square of index). (~3 lines)
-    for (int i = 0; i < 10; i++){
+    for (int i = 0; i < n; i++){
         heap_arr[i] = i * i;
     }
     return heap_arr;
