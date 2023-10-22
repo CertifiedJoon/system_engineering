@@ -572,8 +572,6 @@ int main() {
     pid_t pid = getpid();
     char exit_command[10] = "exit";
 
-    sem_init(&mutex, 0, 1);
-
     signal(SIGINT, sig2Handler);
     signal(SIGUSR1, sig10Handler);
 
@@ -593,8 +591,6 @@ int main() {
         // Execute the command
         execute_command(command);
     }
-
-    sem_destroy(&mutex);
 
     return 0;
 }
