@@ -1,32 +1,20 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unitsd.h>
-
 typedef struct __lock_t {
-  int turn;
-  int ticket;
+  int flag;
 } lock_t;
 
-
-int fetchTicket(lock_t *lock) {
-  return lock->ticket++;
+void lock(lock_t *lock) {
+  while (compareAndSwap(lock->flag, 0, 1) == 1);
 }
 
-int isMyTurn(lock_t *lock, int ticket) {
-  if (ticket == lock->turn){
-    lock->turn++;
-    return true;
-  } else {
-    return false;
+int compareAndSwap(int *flag, int expected, int newVal) {
+  int oldVal = *flag;
+  if (*flag == expected) {
+    *flag = newVal;
   }
+
+  return oldVal;
 }
 
-
-int thread(){
-  
-  
-  int ticket = fetchTicket(lock);
-  while (isMyTurn);
-  
+void unlock(lock_t *lock) {
+  int flag = 0;
 }
