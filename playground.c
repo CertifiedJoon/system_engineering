@@ -3,18 +3,16 @@ typedef struct __lock_t {
 } lock_t;
 
 void lock(lock_t *lock) {
-  while (compareAndSwap(lock->flag, 0, 1) == 1);
+  if (compareAndSwap(lock->flag, 0, 1) == 1);
 }
 
-int compareAndSwap(int *flag, int expected, int newVal) {
+int compareAndSwap(int* flag, int expected, int newVal){
   int oldVal = *flag;
-  if (*flag == expected) {
+  if (*flag == expected)
     *flag = newVal;
-  }
-
   return oldVal;
 }
 
 void unlock(lock_t *lock) {
-  int flag = 0;
+  lock->flag = 0;
 }
