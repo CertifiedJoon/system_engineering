@@ -2,17 +2,20 @@ typedef struct __lock_t {
   int flag;
 } lock_t;
 
-void lock(lock_t *lock) {
-  if (compareAndSwap(lock->flag, 0, 1) == 1);
+int linkedloaded(lock_t *lock){
+  return lock->flag;
 }
 
-int compareAndSwap(int* flag, int expected, int newVal){
-  int oldVal = *flag;
-  if (*flag == expected)
-    *flag = newVal;
-  return oldVal;
+int storeConditional(int* ptr, int value) {
+  if (/*No change to linked address*/){
+    *ptr = value;
+    return 1;
+  } else {
+    return 0;
+  }
+  
 }
 
-void unlock(lock_t *lock) {
-  lock->flag = 0;
+void lock (lock_t *lock) {
+  while (LoadLinked(&lock->flag) || !StoreConditional(&lock->flag, 1));
 }
