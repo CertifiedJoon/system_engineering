@@ -1,13 +1,5 @@
-typedef struct __lock_t {
-  int turn;
-  int ticket;
-} lock_t;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-int fetchTicket(lock_t *lock){
-  return (lock->ticket)++;
-}
-
-int isCorrectTurn(lock_t *lock, int ticket) {
-  return lock->turn == ticket;
-}
-
+pthread_mutex_lock(&lock);
+//critical seleciton
+pthread_mutex_unlock(&lock);
