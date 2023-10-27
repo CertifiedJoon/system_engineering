@@ -16,6 +16,7 @@ def authenticate(sockfd):
         if rmsg[0] != "1001":
             print("Wrong credentials")
         else:
+            print("Loggedin")
             break
     return
 
@@ -26,16 +27,16 @@ def game_hall(sockfd):
         if command[0] == "/list":
             msg = f"/list"
             sockfd.send(msg.encode())
-            print(sockfd.recv().decode())
+            print(sockfd.recv(1024).decode())
         elif command[0] == "/enter":
             msg = f"/enter {command[1]}"
             sockfd.send(msg.encode())
-            msg = sockfd.recv().decode().split()
+            msg = sockfd.recv(1024).decode().split()
             game_room(sockfd, msg)  # take 3011-3013
         elif command[0] == "/exit":
             msg = f"/exit"
             sockfd.send(msg.encode())
-            msg = sockfd.recv().decode().split()
+            msg = sockfd.recv(1024).decode().split()
             if msg[0] == "4001":
                 return
         else:
@@ -49,14 +50,14 @@ def game_room(sockfd, msg):
 
     if msg[0] == "3011":
         while msg[0] != "3012":
-            msg = sockfd.recv().decode().split()
+            msg = sockfd.recv(1024).decode().split()
 
     if msg[0] == "3012":
         done = 0
         while not done:
             command = input()
             sockfd.send(command.encode())
-            response = sockfd.recv().decode().split()
+            response = sockfd.recv(1024).decode().split()
             print(response)
     return
 
