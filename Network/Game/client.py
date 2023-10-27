@@ -1,12 +1,12 @@
 import socket
-import os.path
 import sys
 
 
 def authenticate(sockfd):
+    tries = 0
     while True:
-        user_name = input("Please input your username: ")
-        passwd = input("Please input your password: ")
+        user_name = input("Please input your username: ").strip()
+        passwd = input("Please input your password: ").strip()
         msg = f"/login {user_name} {passwd}"
         sockfd.send(msg.encode())
 
@@ -14,11 +14,13 @@ def authenticate(sockfd):
         rmsg = sockfd.recv(1024).decode().split(" ")
 
         if rmsg[0] != "1001":
-            print("Wrong credentials")
+            tries += 1
+            print(f"{' '.join(rmsg)} {3 - tries} left")
+            if tries == 3:
+                return False
         else:
             print("Loggedin")
-            break
-    return
+            return True
 
 
 def game_hall(sockfd):
@@ -38,27 +40,31 @@ def game_hall(sockfd):
             sockfd.send(msg.encode())
             msg = sockfd.recv(1024).decode().split()
             if msg[0] == "4001":
+                print(" ".join(msg))
                 return
         else:
             print("instruction unclear.")
 
 
 def game_room(sockfd, msg):
-    print(msg)
+    print(" ".join(msg))
     if msg[0] == "3013":
         return
 
     if msg[0] == "3011":
-        while msg[0] != "3012":
+        while msg[0] != "3012" and msg[0] != "3021":
             msg = sockfd.recv(1024).decode().split()
 
     if msg[0] == "3012":
-        done = 0
-        while not done:
-            command = input()
-            sockfd.send(command.encode())
-            response = sockfd.recv(1024).decode().split()
-            print(response)
+        print(" ".join(msg))
+        command = input()
+        sockfd.send(command.encode())
+        response = sockfd.recv(1024).decode().split()
+        print(" ".join(response))
+
+    if msg[0] == "3021":
+        print(" ".join(msg))
+
     return
 
 
@@ -70,11 +76,11 @@ def main(argv):
     print("Connection established. My socket address is", sockfd.getsockname())
 
     # user authenticate
-    authenticate(sockfd)
-    game_hall(sockfd)
+    if authenticate(sockfd):
+        game_hall(sockfd)
 
     # close connection
-    print("[Completed]")
+    print("Client Ends")
     sockfd.close()
 
 

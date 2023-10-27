@@ -7,21 +7,26 @@ NUMBER_OF_ROOMS = 10
 
 lock = threading.Lock()
 done = [threading.Condition(lock) for _ in range(NUMBER_OF_ROOMS)]
+rooms = [[] for _ in range(NUMBER_OF_ROOMS)]
 
 
-def game_room(room, room_number):
+def game_room(room_number):
+    print(f"game room {room_number} started")
     while True:
         user_quit = False
-        if len(room) == 2:
+        if len(rooms[room_number]) == 2:
             ans = ["true", "false"][random.randrange(2)]
             msg = "3012 Game started. Please guess true or false"
             bets = []
-            for i, conn in enumerate(room):
+            for i, conn in enumerate(rooms[room_number]):
+                print(f"ask player {i}: {msg}")
                 try:
-                    conn.send(msg.encode())
-                    while True:
+                    while True and not user_quit:
+                        conn.send(msg.encode())
                         resp = conn.recv(1024).decode().split()
-                        if resp[0] == "/guess" and (
+                        if not resp:
+                            raise Exception
+                        elif resp[0] == "/guess" and (
                             resp[1] == "true" or resp[1] == "false"
                         ):
                             bets.append(resp[1].lower())
@@ -29,25 +34,28 @@ def game_room(room, room_number):
                         else:
                             conn.send("4002 Unrecognized message".encode())
                 except:
-                    room[1 if i == 0 else 0].send("3021 You are the winner".encode())
+                    print(rooms[room_number])
+                    rooms[room_number][1 if i == 0 else 0].send(
+                        "3021 You are the winner".encode()
+                    )
                     user_quit = True
                     break
 
             if not user_quit:
                 if bets[0] == bets[1]:
-                    for conn in room:
+                    for conn in rooms[room_number]:
                         msg = "3023 The result is a tie"
                         conn.send(msg.encode())
                 elif bets[0] == ans:
-                    room[0].send("3021 You are the winner".encode())
-                    room[1].send("3022 You lost this game".encode())
+                    rooms[room_number][0].send("3021 You are the winner".encode())
+                    rooms[room_number][1].send("3022 You lost this game".encode())
                 else:
-                    room[0].send("3022 You lost this game".encode())
-                    room[1].send("3021 You are the winner".encode())
+                    rooms[room_number][0].send("3022 You lost this game".encode())
+                    rooms[room_number][1].send("3021 You are the winner".encode())
 
             lock.acquire()
-            room.pop()
-            room.pop()
+            rooms[room_number].pop()
+            rooms[room_number].pop()
             done[room_number].notify_all()
             lock.release()
 
@@ -56,18 +64,16 @@ def game_hall(conn, rooms):
     while True:
         try:
             req = conn.recv(1024).decode().split()
-
+            print(req)
             if req[0] == "/list":
                 reply = f"3001 {len(rooms)}"
-                for v in rooms.values():
-                    reply += f" {len(v)}"
+                for room in rooms:
+                    reply += f" {len(room)}"
+                print(reply)
                 conn.send(reply.encode())
             elif req[0] == "/enter":
-                reply = "3011 Wait"
-                conn.send(reply.encode())
-
                 lock.acquire()
-                if req[1] < 10 and len(rooms[int(req[1])]) < 2:
+                if int(req[1]) < 10 and len(rooms[int(req[1])]) < 2:
                     reply = "3011 Wait"
                     conn.send(reply.encode())
                     rooms[int(req[1])].append(conn)
@@ -80,8 +86,10 @@ def game_hall(conn, rooms):
             elif req[0] == "/exit":
                 reply = "4001 Bye bye"
                 conn.send(reply.encode())
+                break
         except Exception as e:
             print(e)
+            conn.close()
             break
 
 
@@ -92,8 +100,6 @@ def main(argv):
     credentials = dict()
     threads = []
 
-    rooms = [[] for _ in range(NUMBER_OF_ROOMS)]
-
     with open(userInfoPath, "r") as f:
         lines = f.readlines()
         for credential in lines:
@@ -103,7 +109,7 @@ def main(argv):
     for i, room in enumerate(rooms):
         t = threading.Thread(
             target=game_room,
-            args=(room, i),
+            args=(i,),
         )
         t.start()
         threads.append(t)
@@ -125,39 +131,45 @@ def main(argv):
         try:
             conn, addr = sockfd.accept()
             print(f"Connection Established. Here is remote peer info: {addr}")
-            msg = conn.recv(1024).decode()
 
-            # use Python string split function to retrieve file name and file size from the received message
-            req_type, user_name, passwd = msg.split(" ")
-            print(msg)
+            tries = 0
 
-            if (
-                req_type == "/login"
-                and user_name in credentials
-                and credentials[user_name] == passwd
-            ):
-                conn.send("1001 Athentication successful".encode())
-                print("success")
-                t = threading.Thread(
-                    target=game_hall,
-                    args=(conn, rooms),
-                )
-                t.start()
-                threads.append(t)
-            else:
-                conn.send("1002 Autentication failed".encode())
-                print("fail")
+            while tries < 3:
+                msg = conn.recv(1024).decode()
+                # use Python string split function to retrieve file name and file size from the received message
+                req_type, user_name, passwd = msg.split(" ")[:3]
+                print(msg)
+                if (
+                    req_type == "/login"
+                    and user_name in credentials
+                    and credentials[user_name] == passwd
+                ):
+                    conn.send("1001 Athentication successful".encode())
+                    print("success")
+                    t = threading.Thread(
+                        target=game_hall,
+                        args=(conn, rooms),
+                    )
+                    t.start()
+                    threads.append(t)
+                    break
+                else:
+                    conn.send("1002 Autentication failed".encode())
+                    print("fail")
+                    tries += 1
 
-            conn.close()
+            if tries == 3:
+                raise Exception
 
-        except RuntimeError as e:
-            print(e)
-            for t in threads:
-                t.join()
+        except KeyboardInterrupt:
+            # for t in threads:
+            #     t.join()
             sockfd.close()
             break
 
-    sockfd.close()
+        except Exception as e:
+            print(e)
+            conn.close()
 
 
 if __name__ == "__main__":
