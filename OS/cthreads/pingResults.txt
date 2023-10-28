@@ -1,0 +1,8 @@
+PING google.com (142.251.222.206) 56(84) bytes of data.
+64 bytes from hkg07s55-in-f14.1e100.net (142.251.222.206): icmp_seq=1 ttl=55 time=3.94 ms
+64 bytes from hkg07s55-in-f14.1e100.net (142.251.222.206): icmp_seq=2 ttl=55 time=4.08 ms
+64 bytes from hkg07s55-in-f14.1e100.net (142.251.222.206): icmp_seq=3 ttl=55 time=6.24 ms
+
+--- google.com ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2004ms
+rtt min/avg/max/mdev = 3.936/4.753/6.242/1.054 ms
