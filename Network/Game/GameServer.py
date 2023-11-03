@@ -11,18 +11,26 @@ rooms = [[] for _ in range(NUMBER_OF_ROOMS)]
 
 
 def game_room(room_number):
+    """
+    Always maintain 10 game room threads.
+    """
     print(f"game room {room_number} started")
+
     while True:
         user_quit = False
+
+        # Check if there are two players in the room, and starts game
         if len(rooms[room_number]) == 2:
             ans = ["true", "false"][random.randrange(2)]
             msg = "3012 Game started. Please guess true or false"
             bets = []
+
+            # take input from players
             for i, conn in enumerate(rooms[room_number]):
                 print(f"ask player {i}: {msg}")
+                conn.send(msg.encode())
                 try:
                     while True and not user_quit:
-                        conn.send(msg.encode())
                         resp = conn.recv(1024).decode().split()
                         if not resp:
                             raise Exception
@@ -41,6 +49,7 @@ def game_room(room_number):
                     user_quit = True
                     break
 
+            # Announce results
             if not user_quit:
                 if bets[0] == bets[1]:
                     for conn in rooms[room_number]:
@@ -53,6 +62,7 @@ def game_room(room_number):
                     rooms[room_number][0].send("3022 You lost this game".encode())
                     rooms[room_number][1].send("3021 You are the winner".encode())
 
+            # acquire lock to edit room_number
             lock.acquire()
             rooms[room_number].pop()
             rooms[room_number].pop()
@@ -61,6 +71,9 @@ def game_room(room_number):
 
 
 def game_hall(conn, rooms):
+    """
+    Maintain a game_hall thread for each connection
+    """
     while True:
         try:
             req = conn.recv(1024).decode().split()

@@ -3,6 +3,9 @@ import sys
 
 
 def authenticate(sockfd):
+    """
+    Authenticate a user
+    """
     tries = 0
     while True:
         user_name = input("Please input your username: ").strip()
@@ -24,17 +27,23 @@ def authenticate(sockfd):
 
 
 def game_hall(sockfd):
+    """
+    Takes care of game-hall communication
+    """
     while True:
         command = input().split()
         if command[0] == "/list":
             msg = f"/list"
             sockfd.send(msg.encode())
             print(sockfd.recv(1024).decode())
-        elif command[0] == "/enter":
-            msg = f"/enter {command[1]}"
-            sockfd.send(msg.encode())
-            msg = sockfd.recv(1024).decode().split()
-            game_room(sockfd, msg)  # take 3011-3013
+        elif command[0] == "/enter" and len(command) == 2 and command[1].isnumeric():
+            if int(command[1]) >= 10:
+                print("There are only 10 rooms")
+            else:
+                msg = f"/enter {command[1]}"
+                sockfd.send(msg.encode())
+                msg = sockfd.recv(1024).decode().split()
+                game_room(sockfd, msg)  # take 3011-3013
         elif command[0] == "/exit":
             msg = f"/exit"
             sockfd.send(msg.encode())
@@ -43,10 +52,13 @@ def game_hall(sockfd):
                 print(" ".join(msg))
                 return
         else:
-            print("instruction unclear.")
+            print("4002 Unrecognized message")
 
 
 def game_room(sockfd, msg):
+    """
+    Takes care of game-room communication
+    """
     print(" ".join(msg))
     if msg[0] == "3013":
         return
@@ -57,10 +69,13 @@ def game_room(sockfd, msg):
 
     if msg[0] == "3012":
         print(" ".join(msg))
-        command = input()
-        sockfd.send(command.encode())
-        response = sockfd.recv(1024).decode().split()
-        print(" ".join(response))
+        while True:
+            command = input()
+            sockfd.send(command.encode())
+            response = sockfd.recv(1024).decode().split()
+            print(" ".join(response))
+            if response[0] != "4002":
+                break
 
     if msg[0] == "3021":
         print(" ".join(msg))
