@@ -1,13 +1,5 @@
-arr = [i for i in range(10)]
+strings = ["aaaa", "bbbb", "cccccccc"]
 
-del arr[1:2]
+strings.sort(key=str.lower, reverse=True)
 
-del arr[1:3:2]
-
-del arr
-
-arr2 = arr
-
-arr2.insert(1, 2)
-arr2.remove(7)
-print(reversed(arr))
+print(strings)
