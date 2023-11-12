@@ -55,7 +55,8 @@ typedef struct __mult_vec_param {
     float* mat;
     int col;
     int row;
-    float val;
+    int thread_index;
+    float* val;
 } mult_vec_param;
 
 pthread_t* threads;
@@ -64,35 +65,48 @@ mult_vec_param* params;
 
 sem_t child;
 sem_t parent;
-
+sem_t write;
 int terminated = 1;
 
+
+
 void *thr_func(void *arg) {
-    int k = 0;
+    int thread_index = 0;
+
     while (terminated == 1) {
         sem_wait(&child);
         if (terminated == 1){
             mult_vec_param* p = (mult_vec_param*) arg;
             float *vec = p->vec;
             float *mat = p->mat;
-            int i = p->row;
-            k = i;
+            thread_index = p->thread_index;
+            int row = p->row;
             int col = p->col;
+            int k = row / n;
 
-            for (int j = 0; j < col; j++) {
-                p->val += mat[i * col + j] * vec[j];
+            for (int i = 0; i < k; i++) {
+                float val = 0.0f;
+                int row_index = thread_index * k + i;
+                
+                for (int j = 0; row_index < row && j < col; j++){
+                    sem_wait(&write);
+                    val += mat[row_index * col + j] * vec[j];
+                    sem_post(&write);
+                }
+                p->val[i] = val;
             }
         }
         sem_post(&parent);
     }
 
-    getrusage(RUSAGE_THREAD, &child_usages[k]);
+    getrusage(RUSAGE_THREAD, &child_usages[thread_index]);
 }
 
 int init_mat_vec_mul(int thr_count) {
     printf("Init\n");
     sem_init(&child, 0, 0);
     sem_init(&parent, 0, 0);
+    sem_init(&write, 0, 1);
     n = thr_count;
     threads = (pthread_t*) malloc (sizeof(pthread_t) * n);
     params = (mult_vec_param*) malloc (sizeof(mult_vec_param) * n);
@@ -108,28 +122,32 @@ int init_mat_vec_mul(int thr_count) {
 void mat_vec_mul(float* out, float* vec, float* mat, int col, int row) {
     int k = row / n;
    
-    for (int i = 0; i <= k; i++) {
-        for (int j = 0; j < n && i*n + j < row; j++) {
-            params[j].vec = vec;
-            params[j].mat = mat;
-            params[j].row = i;
-            params[j].col = col;
-            params[j].val = 0.0f;
-        }
+    for (int i = 0; i < n; i++) {
+        params[i].vec = vec;
+        params[i].mat = mat;
+        params[i].row = row;
+        params[i].col = col;
+        params[i].thread_index = i;
+        params[i].val = (float *) malloc (sizeof(float) * k);
+    }
 
-        for (int j = 0; j < n; j++) {
-            sem_post(&child);
-        }
+    for (int j = 0; j < n; j++) {
+        sem_post(&child);
+    }
 
-        for (int j = 0; j < n; j++) {
-            sem_wait(&parent);
-        }
+    for (int j = 0; j < n; j++) {
+        sem_wait(&parent);
+    }
 
-        for (int j = 0; j < row; j++) {
-            out[i * n + j] = params[j].val;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < k; j++) {
+            int row_index = i * k + j;
+            if (row_index < row) {
+                out[row_index] = params[i].val[j];
+            }
         }
-    }    
-
+        free(params[i].val);
+    } 
     getrusage(RUSAGE_THREAD, &main_usage);
 }
 
@@ -152,6 +170,7 @@ int close_mat_vec_mul() {
     free(params);
     sem_destroy(&child);
     sem_destroy(&parent);
+    sem_destroy(&write);
 
     float main_u_time = main_usage.ru_utime.tv_sec + main_usage.ru_utime.tv_usec / 1000000;
     float main_s_time = main_usage.ru_stime.tv_sec + main_usage.ru_stime.tv_usec / 1000000;
