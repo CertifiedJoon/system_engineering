@@ -55,6 +55,7 @@ typedef struct __mult_vec_param {
     float* mat;
     int col;
     int row;
+    int rows_per_thread;
     int thread_index;
     float* val;
 } mult_vec_param;
@@ -65,35 +66,39 @@ mult_vec_param* params;
 
 sem_t child;
 sem_t parent;
-sem_t write;
-int terminated = 1;
+sem_t write_param;
+sem_t write_out;
 
+int terminated = 0;
 
 
 void *thr_func(void *arg) {
     int thread_index = 0;
+    mult_vec_param* p = (mult_vec_param*) arg;
 
-    while (terminated == 1) {
+    while (terminated == 0) {
         sem_wait(&child);
-        if (terminated == 1){
-            mult_vec_param* p = (mult_vec_param*) arg;
+        if (terminated == 0){
             float *vec = p->vec;
             float *mat = p->mat;
             thread_index = p->thread_index;
             int row = p->row;
             int col = p->col;
-            int k = row / n;
+            int rows_per_thread = p->rows_per_thread;
 
-            for (int i = 0; i < k; i++) {
-                float val = 0.0f;
-                int row_index = thread_index * k + i;
+            for (int i = 0; i < rows_per_thread; i++) {
+                float sum = 0.0f;
+                int row_index = thread_index * rows_per_thread + i;
                 
-                for (int j = 0; row_index < row && j < col; j++){
-                    sem_wait(&write);
-                    val += mat[row_index * col + j] * vec[j];
-                    sem_post(&write);
+                sem_wait(&write_param);
+                if (row_index < row){
+                    for (int j = 0; j < col; j++){
+                        int mat_index = row_index * col + j;
+                        sum += mat[mat_index] * vec[j];
+                    }
+                    p->val[i] = sum;
                 }
-                p->val[i] = val;
+                sem_post(&write_param);
             }
         }
         sem_post(&parent);
@@ -103,10 +108,10 @@ void *thr_func(void *arg) {
 }
 
 int init_mat_vec_mul(int thr_count) {
-    printf("Init\n");
     sem_init(&child, 0, 0);
     sem_init(&parent, 0, 0);
-    sem_init(&write, 0, 1);
+    sem_init(&write_param, 0, 1);
+    sem_init(&write_out, 0, 1);
     n = thr_count;
     threads = (pthread_t*) malloc (sizeof(pthread_t) * n);
     params = (mult_vec_param*) malloc (sizeof(mult_vec_param) * n);
@@ -120,39 +125,50 @@ int init_mat_vec_mul(int thr_count) {
 }
 
 void mat_vec_mul(float* out, float* vec, float* mat, int col, int row) {
-    int k = row / n;
-   
+    int rows_per_thread;
+
+    if (row % n == 0) {
+        rows_per_thread = row / n;
+    } else {
+        rows_per_thread = (row / n) + 1;
+    }
+
     for (int i = 0; i < n; i++) {
         params[i].vec = vec;
         params[i].mat = mat;
         params[i].row = row;
         params[i].col = col;
         params[i].thread_index = i;
-        params[i].val = (float *) malloc (sizeof(float) * k);
+        params[i].rows_per_thread = rows_per_thread;
+        params[i].val = (float *) malloc (sizeof(float) * rows_per_thread);
     }
 
-    for (int j = 0; j < n; j++) {
+    for (int i = 0; i < n; i++) {
         sem_post(&child);
     }
 
-    for (int j = 0; j < n; j++) {
+    for (int i = 0; i < n; i++) {
         sem_wait(&parent);
     }
 
     for (int i = 0; i < n; i++) {
-        for (int j = 0; j < k; j++) {
-            int row_index = i * k + j;
+        for (int j = 0; j < params[i].rows_per_thread; j++) {
+            int row_index = i * params[i].rows_per_thread + j;
             if (row_index < row) {
                 out[row_index] = params[i].val[j];
             }
         }
-        free(params[i].val);
     } 
+
+    for (int i = 0; i < n; i++) {
+        free(params[i].val);
+    }
+
     getrusage(RUSAGE_THREAD, &main_usage);
 }
 
 int close_mat_vec_mul() {
-    terminated = 0;
+    terminated = 1;
     for (int i = 0; i < n; i++) {
         sem_post(&child);
     }
@@ -170,7 +186,8 @@ int close_mat_vec_mul() {
     free(params);
     sem_destroy(&child);
     sem_destroy(&parent);
-    sem_destroy(&write);
+    sem_destroy(&write_param);
+    sem_destroy(&write_out);
 
     float main_u_time = main_usage.ru_utime.tv_sec + main_usage.ru_utime.tv_usec / 1000000;
     float main_s_time = main_usage.ru_stime.tv_sec + main_usage.ru_stime.tv_usec / 1000000;
