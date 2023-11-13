@@ -56,7 +56,6 @@ typedef struct __mult_vec_param {
     int col;
     int row;
     int rows_per_thread;
-    int thread_index;
     float* val;
 } mult_vec_param;
 
@@ -66,59 +65,89 @@ mult_vec_param* params;
 
 sem_t child;
 sem_t parent;
-sem_t write_param;
-sem_t write_out;
+sem_t sem_param;
+sem_t sem_n;
+sem_t sem_thread;
+sem_t sem_usage;
+sem_t sem_term;
 
 int terminated = 0;
 
 
 void *thr_func(void *arg) {
-    int thread_index = 0;
-    mult_vec_param* p = (mult_vec_param*) arg;
+    int thread_index = *((int*) arg);
+    sem_wait(&sem_param);
+    mult_vec_param* p = &(params[thread_index]);
+    sem_post(&sem_param);
+    printf("thread: %d ", thread_index);
 
     while (terminated == 0) {
         sem_wait(&child);
         if (terminated == 0){
+            sem_wait(&sem_param);
             float *vec = p->vec;
             float *mat = p->mat;
-            thread_index = p->thread_index;
             int row = p->row;
             int col = p->col;
             int rows_per_thread = p->rows_per_thread;
+            sem_post(&sem_param);
 
             for (int i = 0; i < rows_per_thread; i++) {
                 float sum = 0.0f;
                 int row_index = thread_index * rows_per_thread + i;
                 
-                sem_wait(&write_param);
                 if (row_index < row){
                     for (int j = 0; j < col; j++){
                         int mat_index = row_index * col + j;
                         sum += mat[mat_index] * vec[j];
                     }
-                    p->val[i] = sum;
+                    sem_wait(&sem_param);
+                    p->val[row_index] = sum;
+                    sem_post(&sem_param);
+                    // printf("%d ", row_index);
+                    // fflush(stdout);
                 }
-                sem_post(&write_param);
             }
         }
         sem_post(&parent);
     }
-
+    free(arg);
+    sem_wait(&sem_usage);
     getrusage(RUSAGE_THREAD, &child_usages[thread_index]);
+    sem_post(&sem_usage);
 }
 
 int init_mat_vec_mul(int thr_count) {
     sem_init(&child, 0, 0);
     sem_init(&parent, 0, 0);
-    sem_init(&write_param, 0, 1);
-    sem_init(&write_out, 0, 1);
-    n = thr_count;
-    threads = (pthread_t*) malloc (sizeof(pthread_t) * n);
-    params = (mult_vec_param*) malloc (sizeof(mult_vec_param) * n);
-    child_usages = (struct rusage*) malloc (sizeof(struct rusage) * n);
+    sem_init(&sem_param, 0, 1);
+    sem_init(&sem_thread, 0, 1);
+    sem_init(&sem_n, 0, 1);
+    sem_init(&sem_usage, 0, 1);
+    sem_init(&sem_term, 0, 1);
 
-    for (int i = 0; i < n; i++) {
-        pthread_create(&threads[i], NULL, thr_func, (void *) &params[i]);
+    sem_wait(&sem_n);
+    n = thr_count;
+    sem_post(&sem_n);
+
+    sem_wait(&sem_thread);
+    threads = (pthread_t*) malloc (sizeof(pthread_t) * thr_count);
+    sem_post(&sem_thread);
+
+    sem_wait(&sem_param);
+    params = (mult_vec_param*) malloc (sizeof(mult_vec_param) * thr_count);
+    sem_post(&sem_param);
+
+    sem_wait(&sem_usage);
+    child_usages = (struct rusage*) malloc (sizeof(struct rusage) * thr_count);
+    sem_post(&sem_usage);
+
+
+
+    for (int i = 0; i < thr_count; i++) {
+        int *j = (int *) malloc (sizeof(int));
+        *j = i;
+        pthread_create(&threads[i], NULL, thr_func, (void *) j);
     }
 
     return 0;
@@ -127,21 +156,27 @@ int init_mat_vec_mul(int thr_count) {
 void mat_vec_mul(float* out, float* vec, float* mat, int col, int row) {
     int rows_per_thread;
 
+    sem_wait(&sem_n);
     if (row % n == 0) {
         rows_per_thread = row / n;
     } else {
         rows_per_thread = (row / n) + 1;
     }
+    sem_post(&sem_n);
+
 
     for (int i = 0; i < n; i++) {
+        sem_wait(&sem_param);
         params[i].vec = vec;
         params[i].mat = mat;
         params[i].row = row;
         params[i].col = col;
-        params[i].thread_index = i;
         params[i].rows_per_thread = rows_per_thread;
-        params[i].val = (float *) malloc (sizeof(float) * rows_per_thread);
+        params[i].val = out;
+        sem_post(&sem_param);
     }
+
+    
 
     for (int i = 0; i < n; i++) {
         sem_post(&child);
@@ -151,48 +186,61 @@ void mat_vec_mul(float* out, float* vec, float* mat, int col, int row) {
         sem_wait(&parent);
     }
 
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < params[i].rows_per_thread; j++) {
-            int row_index = i * params[i].rows_per_thread + j;
-            if (row_index < row) {
-                out[row_index] = params[i].val[j];
-            }
-        }
-    } 
-
-    for (int i = 0; i < n; i++) {
-        free(params[i].val);
-    }
-
+    sem_wait(&sem_usage);
     getrusage(RUSAGE_THREAD, &main_usage);
+    sem_post(&sem_usage);
 }
 
 int close_mat_vec_mul() {
+    sem_wait(&sem_term);
     terminated = 1;
+    sem_post(&sem_term);
+
     for (int i = 0; i < n; i++) {
         sem_post(&child);
     }
+    
     for (int i = 0; i < n; i++) {
         pthread_join(threads[i], NULL);
     }
+    
     for (int i = 0; i < n; i++) {
+        sem_wait(&sem_usage);
         float child_u_time = child_usages[i].ru_utime.tv_sec + child_usages[i].ru_utime.tv_usec / 1000000;
         float child_s_time = child_usages[i].ru_stime.tv_sec + child_usages[i].ru_stime.tv_usec / 1000000;
+        sem_post(&sem_usage);
         printf("Thread %d has completed - user: %f s, system : %f s\n", i, child_u_time, child_s_time);
-        terminated = 1;
     }
-    free(threads);
-    free(child_usages);
-    free(params);
-    sem_destroy(&child);
-    sem_destroy(&parent);
-    sem_destroy(&write_param);
-    sem_destroy(&write_out);
 
+    sem_wait(&sem_thread);
+    free(threads);
+    sem_post(&sem_thread);
+
+    sem_wait(&sem_usage);
+    free(child_usages);
+    sem_post(&sem_usage);
+
+    sem_wait(&sem_param);
+    free(params);
+    sem_post(&sem_param);
+
+    sem_wait(&sem_term);
+    terminated = 1;
+    sem_post(&sem_term);
+
+    sem_wait(&sem_usage);
     float main_u_time = main_usage.ru_utime.tv_sec + main_usage.ru_utime.tv_usec / 1000000;
     float main_s_time = main_usage.ru_stime.tv_sec + main_usage.ru_stime.tv_usec / 1000000;
+    sem_post(&sem_usage);
     printf("main thread - user: %f s, system : %f s\n", main_u_time, main_s_time);
 
+    sem_destroy(&child);
+    sem_destroy(&parent);
+    sem_destroy(&sem_param);
+    sem_destroy(&sem_thread);
+    sem_destroy(&sem_n);
+    sem_destroy(&sem_usage);
+    sem_destroy(&sem_term);
     return 0;
 }
 
