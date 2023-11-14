@@ -63,7 +63,7 @@ pthread_t* threads;
 int n = 0;
 mult_vec_param* params;
 
-sem_t child;
+sem_t* child;
 sem_t parent;
 sem_t sem_param;
 sem_t sem_n;
@@ -79,10 +79,9 @@ void *thr_func(void *arg) {
     sem_wait(&sem_param);
     mult_vec_param* p = &(params[thread_index]);
     sem_post(&sem_param);
-    printf("thread: %d ", thread_index);
 
     while (terminated == 0) {
-        sem_wait(&child);
+        sem_wait(&child[thread_index]);
         if (terminated == 0){
             sem_wait(&sem_param);
             float *vec = p->vec;
@@ -91,10 +90,13 @@ void *thr_func(void *arg) {
             int col = p->col;
             int rows_per_thread = p->rows_per_thread;
             sem_post(&sem_param);
+            
+            // int row_sum = 0;
 
             for (int i = 0; i < rows_per_thread; i++) {
                 float sum = 0.0f;
                 int row_index = thread_index * rows_per_thread + i;
+                // row_sum += row_index;
                 
                 if (row_index < row){
                     for (int j = 0; j < col; j++){
@@ -105,20 +107,20 @@ void *thr_func(void *arg) {
                     p->val[row_index] = sum;
                     sem_post(&sem_param);
                     // printf("%d ", row_index);
-                    // fflush(stdout);
                 }
             }
+            // printf("\nrow_sum: %d\n", row_sum);
+            // fflush(stdout);
         }
         sem_post(&parent);
     }
     free(arg);
     sem_wait(&sem_usage);
     getrusage(RUSAGE_THREAD, &child_usages[thread_index]);
-    sem_post(&sem_usage);
+    sem_wait(&sem_usage);
 }
 
 int init_mat_vec_mul(int thr_count) {
-    sem_init(&child, 0, 0);
     sem_init(&parent, 0, 0);
     sem_init(&sem_param, 0, 1);
     sem_init(&sem_thread, 0, 1);
@@ -129,6 +131,11 @@ int init_mat_vec_mul(int thr_count) {
     sem_wait(&sem_n);
     n = thr_count;
     sem_post(&sem_n);
+
+    child = (sem_t *) malloc (sizeof(sem_t) * thr_count);
+    for (int i = 0; i < thr_count; i++) {
+        sem_init(&child[i], 0, 0);
+    }
 
     sem_wait(&sem_thread);
     threads = (pthread_t*) malloc (sizeof(pthread_t) * thr_count);
@@ -141,8 +148,6 @@ int init_mat_vec_mul(int thr_count) {
     sem_wait(&sem_usage);
     child_usages = (struct rusage*) malloc (sizeof(struct rusage) * thr_count);
     sem_post(&sem_usage);
-
-
 
     for (int i = 0; i < thr_count; i++) {
         int *j = (int *) malloc (sizeof(int));
@@ -179,12 +184,17 @@ void mat_vec_mul(float* out, float* vec, float* mat, int col, int row) {
     
 
     for (int i = 0; i < n; i++) {
-        sem_post(&child);
+        sem_post(&child[i]);
     }
 
     for (int i = 0; i < n; i++) {
         sem_wait(&parent);
     }
+
+    // for (int i = 0; i < row; i++){
+    //     printf("%f ", out[i]);
+    //     fflush(stdout);
+    // }
 
     sem_wait(&sem_usage);
     getrusage(RUSAGE_THREAD, &main_usage);
@@ -197,7 +207,7 @@ int close_mat_vec_mul() {
     sem_post(&sem_term);
 
     for (int i = 0; i < n; i++) {
-        sem_post(&child);
+        sem_post(&child[i]);
     }
     
     for (int i = 0; i < n; i++) {
@@ -234,7 +244,9 @@ int close_mat_vec_mul() {
     sem_post(&sem_usage);
     printf("main thread - user: %f s, system : %f s\n", main_u_time, main_s_time);
 
-    sem_destroy(&child);
+    for (int i = 0; i < n; i++) {
+        sem_destroy(&child[i]);
+    }
     sem_destroy(&parent);
     sem_destroy(&sem_param);
     sem_destroy(&sem_thread);
