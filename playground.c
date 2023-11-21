@@ -1,32 +1,17 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <time.h>
-#include <sys/wait.h>
+/*
+Monolithic
+1. since the components are grouped in one programme, component communication is
+done directly, not through some api calls
+2. however it is incredibly difficult to debug'
 
-int main(int argc, char *argv[]){
-  int pid = fork();
+Layered
+1. Communication is slower as communication is only done between adjacent 
+layers.
+2. The implementor can determin the boundary of kernel and user mode
+3. It is much easier to debug
 
-  if (pid == -1) {return 1;}
-  if (pid == 0) {
-    // child process
-    FILE *fp = fopen("smt.txt");
-    dup2(fp, STDOUT);
-    execlp("ping", "ping", "-c", "3", "google.com", NULL);
-  } else {
-    // parent process
-    int wstatus;
-    wait(&wstatus);
-    if (WIFEXITED(wstatus)) {
-      int statusCode = WEXITSTATUS(wstatus);
-      if (statusCode == 0) {
-        printf("Success!\n");
-      } else {
-        printf("Failure! Status Code %d\n", statusCode);
-      }
-    }
-    printf("Some post processing goes here!\n");
-  } 
-  
-  return 0;
-}
+Microkernel
+1. 
+
+
+*/
