@@ -1,65 +1,42 @@
-#include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <semaphore.h>
+#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 
-#define THREAD_NUM 4
+int main (int argc, char* argv[]) {
+  int p1[2];
+  int p2[2];
 
-sem_t semEmpty;
-sem_t semFull;
+  if (pipe(p1) == -1) {return 1;}
+  if (pipe(p2) == -1) {return 1;}
 
-pthread_mutex_t mutexBuffer;
+  int pid = fork();
+  if (pid == 0) {
+    // child process
+    close(p1[0]);
+    close(p2[1]);
+    int x;
+    
+    if (read(p2[0], &x, sizeof(x)) == -1) return 3;
+    x *= 4;
+    if (write(p1[1], &x, sizeof(x)) == -1) return 4;
+    close(p1[1]);
+    close(p2[0]);
+  } else {
+    // parent process
+    close(p1[1]);
+    close(p2[0]);
+    srand(time(NULL));
 
-int buffer[10];
-int count = 0;
-
-void* producer(void* args) {
-  while (1) {
-    sem_wait(&semEmpty);
-    pthread_mutex_lock(&mutexBuffer);
-    buffer[count++] = rand() % 100;
-    pthread_mutex_unlock(&mutexBuffer);
-    sem_post(&semFull);
+    int y = rand() % 10;
+    if (write(p2[1], &y, sizeof(y)) == -1) return 5;
+    printf("Orginally wrote %d\n", y);
+    if (read(p1[0], &y, sizeof(y)) == -1) return 6;
+    printf("Result is %d\n", y);
+    close(p1[0]);
+    close(p2[1]);
+    waitpid(pid);
   }
-}
-
-
-void* consumer(void* args) {
-  while (1) {
-    sem_wait(&semFull);
-    pthread_mutex_lock(&mutexBuffer);
-    int y = buffer[count - 1];
-    count --;
-    pthread_mutex_unlock(&mutexBuffer);
-    sem_post(&semEmpty);
-    printf("Got %d\n", y);
-    sleep(1);
-  }
-}
-
-
-int main(int argc, char* argv[]) {
-  srand(time(NULL));
-  pthread_t threads[THREAD_NUM];
-  sem_init(&semEmpty, 0, 10);
-  sem_init(&semFull, 0, 0);
-  
-  for (int i = 0; i < THREAD_NUM; i++) {
-    if (i % 2 == 0)
-      pthread_create(&threads[i], NULL, &producer, NULL) != 0;
-    else
-      pthread_create(&threads[i], NULL, &consumer, NULL) != 0;
-  }
-
-  for (int i = 0; i < THREAD_NUM; i++) {
-    pthread_join(threads[i], NULL);
-  }
-
-  sem_destroy(&semEmpty);
-  sem_destroy(&semFull);
-  pthread_mutex_destroy(&mutexBuffer);
 
   return 0;
 }
