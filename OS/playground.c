@@ -1,39 +1,61 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <time.h>
+#include <pthread.h>
+#include <semaphore.h>
 
-int main(int argc, char *argv []) {
-  int p1[2];
-  int p2[2];
+#define THREAD_NUM 4
 
-  pipe(p1);
-  pipe(p2);
+sem_t semEmpty;
+sem_t semFull;
 
-  int pid = fork();
+pthread_mutex_t mutexBuffer;
 
-  if (pid == 0) {
-    // child process
-    close(p1[1]);
-    close(p2[0]);
-    int x;
-    read(p1[0], &x, sizeof(x));
-    x *= 4;
-    write(p2[1], &x, sizeof(x));
-    close(p1[0]);
-    close(p2[1]);
-  } else {
-    close(p2[1]);
-    close(p1[0]);
-    srand(time(NULL));
-    int y = rand() % 100;
-    write(p1[1], &y, sizeof(y));
-    printf("wrote %d\n", y);
-    read(p2[0], &y, sizeof(y));
-    printf("read %d\n", y);
-    close(p1[1]);
-    close(p2[2]);
+int buffer[10];
+int count = 0;
+
+void* producer() {
+  while(1) {
+    sem_wait(&semEmpty);
+    pthread_mutex_lock(&mutexBuffer);
+    buffer[count++] = rand() % 100;
+    pthread_mutex_unlock(&mutexBuffer);
+    sem_post(&semFull);
+    sleep(1);
+  }
+}
+
+
+void* consumer() {
+  while(1) {
+    sem_wait(&semFull);
+    pthread_mutex_lock(&mutexBuffer);
+    int y = buffer[--count];
+    printf("consumed %d\n", y);
+    pthread_mutex_unlock(&mutexBuffer);
+    sem_post(&semEmpty);
+    sleep(1);
+  }
+}
+
+
+int main(int argc, char* argv[]) {
+  pthread_t threads[THREAD_NUM];
+  sem_init(&semEmpty, 0, 10);
+  sem_init(&semFull, 0, 0);
+  pthread_mutex_init(&mutexBuffer, NULL);
+
+  for (int i = 0; i < THREAD_NUM; i++) {
+    if (i % 2 == 0)
+      pthread_create(&threads[i], NULL, producer, NULL);
+    else
+      pthread_create(&threads[i], NULL, consumer, NULL);
   }
 
-  return 0;
+  for (int i = 0; i < THREAD_NUM; i++)
+    pthread_join(threads[i], NULL);
+
+  sem_destroy(&semEmpty);
+  sem_destroy(&semFull);
+  pthread_mutex_destroy(&mutexBuffer);
 }
