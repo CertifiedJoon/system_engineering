@@ -1,17 +1,39 @@
-int loadLinked(int *ptr) {
-  return *ptr;
-}
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <time.h>
 
-int StoreConditional(int *ptr, int value) {
-  if (no update to *ptr since loadlinked) {
-    *ptr  = value;
-    return 1
+int main(int argc, char *argv []) {
+  int p1[2];
+  int p2[2];
+
+  pipe(p1);
+  pipe(p2);
+
+  int pid = fork();
+
+  if (pid == 0) {
+    // child process
+    close(p1[1]);
+    close(p2[0]);
+    int x;
+    read(p1[0], &x, sizeof(x));
+    x *= 4;
+    write(p2[1], &x, sizeof(x));
+    close(p1[0]);
+    close(p2[1]);
   } else {
-    return 0;
+    close(p2[1]);
+    close(p1[0]);
+    srand(time(NULL));
+    int y = rand() % 100;
+    write(p1[1], &y, sizeof(y));
+    printf("wrote %d\n", y);
+    read(p2[0], &y, sizeof(y));
+    printf("read %d\n", y);
+    close(p1[1]);
+    close(p2[2]);
   }
-}
 
-void lock(lock_t *lock) {
-  while (Loadlinked(&lock->flag) || !StoreConditional(&lock->flag, 1))
-  ;
+  return 0;
 }
