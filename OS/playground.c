@@ -1,61 +1,21 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <semaphore.h>
 
-#define THREAD_NUM 4
-
-sem_t semEmpty;
-sem_t semFull;
-
-pthread_mutex_t mutexBuffer;
-
-int buffer[10];
-int count = 0;
-
-void* producer() {
-  while(1) {
-    sem_wait(&semEmpty);
-    pthread_mutex_lock(&mutexBuffer);
-    buffer[count++] = rand() % 100;
-    pthread_mutex_unlock(&mutexBuffer);
-    sem_post(&semFull);
-    sleep(1);
-  }
+*void my_thread(void* arg) {
+  long long int value = (long long int) arg;
+  printf("%lld\n", value);
+  return (void *) (value + 1);
 }
-
-
-void* consumer() {
-  while(1) {
-    sem_wait(&semFull);
-    pthread_mutex_lock(&mutexBuffer);
-    int y = buffer[--count];
-    printf("consumed %d\n", y);
-    pthread_mutex_unlock(&mutexBuffer);
-    sem_post(&semEmpty);
-    sleep(1);
-  }
-}
-
 
 int main(int argc, char* argv[]) {
-  pthread_t threads[THREAD_NUM];
-  sem_init(&semEmpty, 0, 10);
-  sem_init(&semFull, 0, 0);
-  pthread_mutex_init(&mutexBuffer, NULL);
+  pthread_t p;
 
-  for (int i = 0; i < THREAD_NUM; i++) {
-    if (i % 2 == 0)
-      pthread_create(&threads[i], NULL, producer, NULL);
-    else
-      pthread_create(&threads[i], NULL, consumer, NULL);
-  }
+  long long int rvalue;
 
-  for (int i = 0; i < THREAD_NUM; i++)
-    pthread_join(threads[i], NULL);
+  pthread_create(&p, NULL, mythread, (void *) 100);
 
-  sem_destroy(&semEmpty);
-  sem_destroy(&semFull);
-  pthread_mutex_destroy(&mutexBuffer);
+  pthread_join(p, (void **) &rvalue);
+  printf("returned %lld\n", rvalue);
+  return 0;
 }
