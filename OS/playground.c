@@ -1,21 +1,43 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <unistd.h>
+#include <stdio.h>
 
-*void my_thread(void* arg) {
-  long long int value = (long long int) arg;
-  printf("%lld\n", value);
-  return (void *) (value + 1);
-}
 
 int main(int argc, char* argv[]) {
-  pthread_t p;
+  int fd[2];
+  pipe(fd);
 
-  long long int rvalue;
+  int arr[] = {1,2,3,4,5,6,7};
+  int arr_size = sizeof(arr) / sizeof(int);
+  int start, end;
+  int pid = fork();
 
-  pthread_create(&p, NULL, mythread, (void *) 100);
+  if (pid == 0) {
+    // child process
+    start = arr_size / 2;
+    end = arr_size;
+  } else {
+    start = 0;
+    end = arr_size / 2;
+  }
 
-  pthread_join(p, (void **) &rvalue);
-  printf("returned %lld\n", rvalue);
+  int sum = 0;
+  for (int i = start; i < end; i++) {
+    sum += arr[i];
+  }
+
+  if (pid == 0) {
+    close(fd[0]);
+    write(fd[1], &sum, sizeof(sum));
+    close(fd[1]);
+  } else {
+    close(fd[1]);
+    int sumFromChild;
+    read(fd[0], &sumFromChild, sizeof(sumFromChild));
+    close(fd[0]);
+    wait(NULL);
+    printf("total sum %d\n", sumFromChild + sum);
+  }
+
   return 0;
 }
